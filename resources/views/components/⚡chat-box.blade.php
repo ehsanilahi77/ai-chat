@@ -1,18 +1,20 @@
 <?php
 
-use App\Ai\Agents\ChatAgent;
+use Livewire\Attributes\On;
 use Livewire\Component;
 
 new class extends Component {
     public bool $loading = false;
     public string $input = '';
     public array $messages = [];
+    public $attachment;
 
     // send Message
     public function send(): void
     {
         $this->validate([
-            'input' => ['required_without:attachment', 'nullable', 'string', 'max:2000']
+            'input' => ['required', 'string', 'max:2000'],
+            'attachment' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
         ]);
 
         $userMessage = $this->input;
@@ -25,27 +27,50 @@ new class extends Component {
             'content' => $userMessage,
         ];
 
-        try{
-            $response = (new ChatAgent)->prompt($userMessage);
-
-            // AI Response
+        try {
+            // AI Response placeholder; content is filled by stream-complete
             $this->messages[] = [
-                'role' => 'Assistant',
-                'content' => $response->text
+                'role' => 'assistant',
+                'content' => '',
+                'streaming' => true,
             ];
 
-        }catch (Throwable $e){
+            // Browser Event Start Streaming
+            $this->dispatch('start-stream', message: $userMessage);
+        } catch (Throwable $e) {
             report($e);
 
             $this->messages[] = [
-                'role' => 'Assistant',
-                'content' => 'Sorry Something Went Wrong, Please Try Agin Later'
+                'role' => 'assistant',
+                'content' => 'Sorry, something went wrong. Please try again later.',
             ];
+
+            $this->loading = false;
+        }
+    }
+
+    #[On('stream-complete')]
+    public function streamComplete(string $content): void
+    {
+        if ($this->messages !== []) {
+            $index = array_key_last($this->messages);
+            $this->messages[$index]['content'] = $content;
+            unset($this->messages[$index]['streaming']);
         }
 
         $this->loading = false;
+    }
 
+    #[On('stream-error')]
+    public function streamError(): void
+    {
+        if ($this->messages !== []) {
+            $index = array_key_last($this->messages);
+            $this->messages[$index]['content'] = 'Sorry, something went wrong. Please try again later.';
+            unset($this->messages[$index]['streaming']);
+        }
 
+        $this->loading = false;
     }
 
     // clear Message
@@ -62,7 +87,7 @@ new class extends Component {
 };
 ?>
 
-<div class="flex-1 overflow-y-auto px-2 pb-4 space-y-1" x-data="{ openMenu: null }">
+<div class="flex-1 overflow-y-auto px-2 pb-4 space-y-1" x-data="chatStream">
 
     {{-- Header --}}
 
@@ -134,26 +159,12 @@ new class extends Component {
                     <div
                         class="bg-zinc-800 border border-zinc-700/50 px-4 py-3 rounded-2xl rounded-tl-sm text-sm text-zinc-100 leading-relaxed">
 
-                        @if($loading)
-                            <span class="text-zinc-400">AI is thinking... </span>
+                        @if ($message['streaming'] ?? false)
+                            <span class="text-zinc-400" x-show="streamingText === ''">AI is thinking... </span>
+                            <span x-show="streamingText !== ''" x-text="streamingText"></span>
+                        @elseif (filled($message['content']))
+                            {{ $message['content'] }}
                         @endif
-
-{{--                        @if ($message['streaming'] ?? false)--}}
-{{--                            --}}{{-- Streaming Indicator --}}
-{{--                            <template x-if="!hasStartedStreaming">--}}
-{{--                                <span class="text-zinc-400">LaraChat is thinking... </span>--}}
-{{--                            </template>--}}
-
-{{--                            <span x-show="hasStartedStreaming" x-html="renderMarkdown(streamingText)"--}}
-{{--                                  class="markdown-body block"></span>--}}
-{{--                        @else--}}
-{{--                            --}}{{-- Messages --}}
-{{--                            <div class="max-w-md lg:max-w-2xl">--}}
-{{--                                <span class="markdown-body"--}}
-{{--                                      x-html="renderMarkdown(@js($message['content']))"></span>--}}
-{{--                            </div>--}}
-{{--                        @endif--}}
-                        {{$message['content']}}
                     </div>
                 </div>
             @endif
@@ -210,4 +221,129 @@ new class extends Component {
         </div>
     </div>
 </div>
+
+
+@script
+<script>
+    Alpine.data('chatStream', () => ({
+        streamingText: '',
+        hasStartedStreaming: false,
+        conversationId: null,
+
+        init() {
+            this.$wire.on('start-stream', ({ message }) => {
+                this.startStream(message);
+            });
+        },
+
+        scrollToBottom() {
+            const container = this.$refs.messagesContainer;
+
+            if (container) {
+                container.scrollTop = container.scrollHeight;
+            }
+        },
+
+        //function start streaming
+        async startStream(message) {
+            this.streamingText = '';
+            this.hasStartedStreaming = false;
+
+            try {
+                const response = await fetch(@js(route('chat.stream')), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'text/event-stream',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                    }),
+                });
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                let buffer = '';
+
+                while (true) {
+                    const {
+                        done,
+                        value
+                    } = await reader.read();
+
+                    if (done) break;
+
+                    buffer += decoder.decode(value, {
+                        stream: true,
+                    });
+
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+
+                        if (!line.startsWith('data: ')) {
+                            continue;
+                        }
+
+                        const data = line.slice(6).trim();
+
+                        if (data === '[DONE]') {
+                            await this.$wire.dispatch('stream-complete', {
+                                content: this.streamingText,
+                            });
+
+                            return;
+                        }
+
+                        try {
+
+                            const parsed = JSON.parse(data);
+
+                            if (parsed.content) {
+                                this.hasStartedStreaming = true;
+                                this.streamingText += parsed.content;
+
+                                // Auto scroll to latest message/response
+                                this.scrollToBottom();
+                            }
+
+                            // Capture conversation id
+                            if (parsed.conversation_id) {
+                                this.conversationId = parsed.conversation_id;
+
+                                // Dispatch event to refresh the sidebar
+                                Livewire.dispatch('conversation-saved', {
+                                    conversationId: this.conversationId
+                                });
+
+                                console.log('Stored conversation id: ', this.conversationId);
+                            }
+
+                            if (parsed.error) {
+                                await this.$wire.dispatch('stream-error');
+                                return;
+                            }
+
+                        } catch (error) {
+                            console.error('Invalid stream data: ', error);
+                        }
+                    }
+                }
+
+                await this.$wire.dispatch('stream-complete', {
+                    content: this.streamingText,
+                });
+            } catch (error) {
+                console.error(error);
+                await this.$wire.dispatch('stream-error');
+            }
+        },
+
+    }));
+
+</script>
+@endscript
 
