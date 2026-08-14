@@ -16,11 +16,11 @@ new class extends Component
             <div class="flex items-center gap-3">
                 <div
                     class="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white text-sm font-bold shadow-lg">
-                    LC
+                    EC
                 </div>
 
                 <div>
-                    <p class="text-sm font-semibold text-white">LaraChat </p>
+                    <p class="text-sm font-semibold text-white">Ehsan AI Chat </p>
                     <p class="text-xs text-zinc-500">Powered by Gemini</p>
                 </div>
             </div>

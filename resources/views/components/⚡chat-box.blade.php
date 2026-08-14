@@ -115,7 +115,7 @@ new class extends Component {
                 LC
             </div>
 
-            <h2 class="text-xl font-semibold text-white mb-2">Welcome to LaraChat</h2>
+            <h2 class="text-xl font-semibold text-white mb-2">Welcome to Ehsan AI Chat</h2>
             <p class="text-zinc-400 text-sm max-w-sm leading-relaxed mb-7">AI assistant powered by Google Gemini &
                 Laravel 13
                 AI SDK</p>
@@ -161,9 +161,10 @@ new class extends Component {
 
                         @if ($message['streaming'] ?? false)
                             <span class="text-zinc-400" x-show="streamingText === ''">AI is thinking... </span>
-                            <span x-show="streamingText !== ''" x-text="streamingText"></span>
+                            <span x-show="streamingText !== ''" class="markdown-body block"
+                                  x-html="renderMarkdown(streamingText)"></span>
                         @elseif (filled($message['content']))
-                            {{ $message['content'] }}
+                            <div class="markdown-body" x-html="renderMarkdown(@js($message['content']))"></div>
                         @endif
                     </div>
                 </div>
@@ -184,7 +185,7 @@ new class extends Component {
 
                 {{-- Textarea --}}
                 <textarea :disabled="$wire.loading" wire:model="input" wire:keydown.enter.prevent="send" rows="1"
-                          placeholder="Message Lara AI Chat Agent..."
+                          placeholder="Message Ehsan AI Chat Agent..."
                           class="flex-1 bg-transparent text-sm text-zinc-100 placeholder-zinc-500 resize-none outline-none leading-relaxed"
                           style="min-height: 28px; height: 28px;"
                           x-on:input="$el.style.height='auto'; $el.style.height=Math.min($el.scrollHeight, 144) + 'px' "></textarea>
@@ -216,7 +217,7 @@ new class extends Component {
                 </button>
             </div>
 
-            <p class="text-center text-xs text-zinc-600 mt-2">LaraChat can make mistakes. Always verify important info.
+            <p class="text-center text-xs text-zinc-600 mt-2">Ehsan Chat can make mistakes. Always verify important info.
             </p>
         </div>
     </div>
@@ -242,6 +243,10 @@ new class extends Component {
             if (container) {
                 container.scrollTop = container.scrollHeight;
             }
+        },
+
+        renderMarkdown(content) {
+            return window.renderMarkdown(content ?? '');
         },
 
         //function start streaming
