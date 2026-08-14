@@ -2,6 +2,9 @@
 
 A streaming AI chat application built with **Laravel 13**, the **Laravel AI SDK** (`laravel/ai`), and **Livewire 4**. It provides a ChatGPT-style interface powered by Google Gemini (configurable to any supported provider) with real-time token streaming, markdown rendering, and syntax-highlighted code blocks.
 
+<img width="1917" height="631" alt="image" src="https://github.com/user-attachments/assets/4a650ba7-aba3-4294-b5c4-9c8735d05209" />
+
+
 ## Features
 
 - **Real-time streaming responses** – AI output is streamed token-by-token to the browser using a Server-Sent Events (SSE) endpoint (`text/event-stream`).
@@ -12,6 +15,9 @@ A streaming AI chat application built with **Laravel 13**, the **Laravel AI SDK*
 - **Multi-provider AI support** – Defaults to Google Gemini but supports OpenAI, Anthropic, Azure, Groq, DeepSeek, Mistral, Ollama, Cohere, xAI, OpenRouter, and more via the Laravel AI SDK.
 - **Conversation persistence ready** – Migrations included for storing conversations and messages (`agent_conversations`, `agent_conversation_messages`).
 - **Dark, responsive UI** – Tailwind CSS 4 with a zinc/violet theme.
+
+<img width="1920" height="1084" alt="image" src="https://github.com/user-attachments/assets/f597080f-73d2-425e-8be2-3490ce55fdc7" />
+
 
 ## Tech Stack
 
